@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Frame Counter</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:sans-serif;background:#222;color:#eee;margin:0;padding:10px}
+#w{max-width:700px;margin:0 auto}
+video{width:100%;background:#000;max-height:50vh}
+button,input,select{min-height:40px;font-size:16px;margin:3px;max-width:100%}
+button:active{background:#ccc}
+.box{background:#333;padding:8px;margin:6px 0;border-radius:6px;overflow-wrap:anywhere}
+#banner{padding:6px;font-size:13px}
+.ok{background:#264}.bad{background:#822}
+</style></head><body>
+<script data-bean-store>(function(){if(typeof location!=='undefined'&&location&&location.protocol==='about:'&&typeof document!=='undefined'&&document.addEventListener){document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href^="#"]');if(!a||a.target==='_blank')return;e.preventDefault();try{location.hash=a.getAttribute('href')}catch(x){}},true)}if(typeof window==='undefined')return;try{window.localStorage.getItem('x');return}catch(e){}var d=Object.assign({},window.__BEAN_SAVED||{});function post(){try{parent.postMessage({type:'bean-store',data:d},'*')}catch(e){}}var ls={getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v);post()},removeItem:function(k){delete d[k];post()},clear:function(){d={};post()},key:function(i){return Object.keys(d)[i]||null}};Object.defineProperty(ls,'length',{get:function(){return Object.keys(d).length}});try{Object.defineProperty(window,'localStorage',{value:ls,configurable:true})}catch(e){}})();</script><div id="w">
+<h2>Frame Counter</h2>
+<div id="banner"></div>
+<div class="box">Clip: <input type="file" id="f" accept="video/*"></div>
+<video id="v" controls muted playsinline></video>
+<div class="box">
+FPS: <input id="fps" type="number" value="60" min="1" max="240" style="width:80px">
+<button id="back">◀ -1 frame (,)</button><button id="fwd">+1 frame (.) ▶</button>
+<div id="pos">Frame 0</div></div>
+<div class="box">Mark current frame as:
+<button data-m="s">1 Start of slam</button>
+<button data-m="h">2 First hit frame</button>
+<button data-m="l">3 Last hit frame</button>
+<button data-m="r">4 Free again</button>
+<button id="clr">Clear</button></div>
+<div class="box">Or type frames by hand:
+<input id="typed" placeholder="e.g. 20 3 30">
+<button id="tb">Use</button></div>
+<div class="box" id="res">Nothing marked yet.</div>
+<p style="font-size:13px">Keys: left/right arrow or , . step a frame. 1-4 mark. Space plays.</p>
+</div>
+<script>
+function count(s,h,l,r){
+ if([s,h,l,r].some(x=>typeof x!=='number'||isNaN(x)))return null;
+ if(!(s<=h&&h<=l&&l<r))return null;
+ return {startup:h-s,active:l-h+1,recovery:r-l-1,total:r-s};
+}
+function selfTest(){
+ const a=count(10,30,32,50);
+ const ok=a&&a.startup===20&&a.active===3&&a.recovery===17&&a.total===40;
+ const bad=count(10,5,32,50)===null&&count(10,30,30,30)===null;
+ const one=count(0,5,5,6);
+ const ok1=one&&one.active===1&&one.recovery===0;
+ const b=document.getElementById('banner');
+ const pass=ok&&bad&&ok1;
+ b.textContent=pass?'Self-test passed':'Self-test FAILED';b.className=pass?'ok':'bad';
+}
+const v=document.getElementById('v'),fpsE=document.getElementById('fps');
+let marks={};
+const fps=()=>Math.max(1,+fpsE.value||60);
+const frame=()=>Math.round(v.currentTime*fps());
+function show(){
+ document.getElementById('pos').textContent='Frame '+frame()+' (t='+v.currentTime.toFixed(3)+'s)';
+ const r=count(marks.s,marks.h,marks.l,marks.r);
+ let t='Start '+(marks.s??'-')+' | First hit '+(marks.h??'-')+' | Last hit '+(marks.l??'-')+' | Free '+(marks.r??'-')+'<br>';
+ t+=r?'<b>Startup '+r.startup+'f, Active '+r.active+'f, Recovery '+r.recovery+'f</b> (total '+r.total+'f)':'Marks must go in order to get numbers.';
+ document.getElementById('res').innerHTML=t;
+}
+let playP=null;
+function safePause(){
+ if(playP){playP.then(()=>v.pause(),()=>{});playP=null;}
+ else v.pause();
+}
+function togglePlay(){
+ if(!v.src)return;
+ if(v.paused){
+  try{const p=v.play();if(p&&p.catch){playP=p.catch(()=>{});playP=p.then(()=>{playP=null;},()=>{playP=null;});}}catch(e){}
+ }else safePause();
+}
+function step(n){
+ if(!v.src)return;
+ safePause();
+ v.currentTime=Math.max(0,(frame()+n+0.5)/fps());
+}
+function mark(k){marks[k]=frame();show();}
+document.getElementById('f').onchange=e=>{const f=e.target.files[0];if(f)v.src=URL.createObjectURL(f);};
+document.getElementById('back').onclick=()=>step(-1);
+document.getElementById('fwd').onclick=()=>step(1);
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>mark(b.dataset.m));
+document.getElementById('clr').onclick=()=>{marks={};show();};
+document.getElementById('tb').onclick=()=>{
+ const p=document.getElementById('typed').value.trim().split(/\s+/).map(Number);
+ if(p.length===3&&p.every(x=>!isNaN(x))){marks={s:0,h:p[0],l:p[0]+p[1]-1,r:p[0]+p[1]-1+p[2]+1};}
+ show();};
+v.addEventListener('seeked',show);v.addEventListener('timeupdate',show);
+fpsE.oninput=show;
+window.addEventListener('keydown',e=>{
+ if(e.target.tagName==='INPUT')return;
+ const k=e.key;
+ if(k==='ArrowLeft'||k===','){e.preventDefault();step(-1);}
+ else if(k==='ArrowRight'||k==='.'){e.preventDefault();step(1);}
+ else if(k===' '&&e.target.tagName!=='BUTTON'){e.preventDefault();togglePlay();}
+ else if(k.length===1&&'1234'.includes(k)){mark('shlr'[+k-1]);}
+});
+window.addEventListener('unhandledrejection',e=>e.preventDefault());
+selfTest();show();
+</script></body></html>
