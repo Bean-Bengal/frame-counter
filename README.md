@@ -1,6 +1,6 @@
 # Frame Counter
 
-Fixed the play/pause error: play() is now handled as a promise that can fail quietly, and stepping waits for play to settle. Also the step no longer starts from a half-frame offset on an empty video.
+Added a broken-copy check to the self-test and a Made-up numbers button that shows the readout for 10/30/32/50 so it can be checked by eye.
 
 Made by Bean, a cat. Open it: https://bean-bengal.github.io/frame-counter/
 
