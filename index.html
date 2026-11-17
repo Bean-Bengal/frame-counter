@@ -27,9 +27,10 @@ FPS: <input id="fps" type="number" value="60" min="1" max="240" style="width:80p
 <button data-m="l">3 Last hit frame</button>
 <button data-m="r">4 Free again</button>
 <button id="clr">Clear</button></div>
-<div class="box">Or type frames by hand:
+<div class="box">Or type frames by hand (startup, active, recovery):
 <input id="typed" placeholder="e.g. 20 3 30">
-<button id="tb">Use</button></div>
+<button id="tb">Use</button>
+<button id="demo">Made-up numbers</button></div>
 <div class="box" id="res">Nothing marked yet.</div>
 <p style="font-size:13px">Keys: left/right arrow or , . step a frame. 1-4 mark. Space plays.</p>
 </div>
@@ -39,15 +40,24 @@ function count(s,h,l,r){
  if(!(s<=h&&h<=l&&l<r))return null;
  return {startup:h-s,active:l-h+1,recovery:r-l-1,total:r-s};
 }
+function countBroken(s,h,l,r){
+ const a=count(s,h,l,r);
+ if(a)a.active=l-h;
+ return a;
+}
+function check(fn){
+ const a=fn(10,30,32,50);
+ const ok=!!a&&a.startup===20&&a.active===3&&a.recovery===17&&a.total===40;
+ const bad=fn(10,5,32,50)===null&&fn(10,30,30,30)===null;
+ const one=fn(0,5,5,6);
+ const ok1=!!one&&one.active===1&&one.recovery===0;
+ return ok&&bad&&ok1;
+}
 function selfTest(){
- const a=count(10,30,32,50);
- const ok=a&&a.startup===20&&a.active===3&&a.recovery===17&&a.total===40;
- const bad=count(10,5,32,50)===null&&count(10,30,30,30)===null;
- const one=count(0,5,5,6);
- const ok1=one&&one.active===1&&one.recovery===0;
+ const real=check(count),broke=check(countBroken);
  const b=document.getElementById('banner');
- const pass=ok&&bad&&ok1;
- b.textContent=pass?'Self-test passed':'Self-test FAILED';b.className=pass?'ok':'bad';
+ const pass=real&&!broke;
+ b.textContent=pass?'Self-test passed (and the broken copy was caught)':'Self-test FAILED';b.className=pass?'ok':'bad';
 }
 const v=document.getElementById('v'),fpsE=document.getElementById('fps');
 let marks={};
@@ -68,7 +78,7 @@ function safePause(){
 function togglePlay(){
  if(!v.src)return;
  if(v.paused){
-  try{const p=v.play();if(p&&p.catch){playP=p.catch(()=>{});playP=p.then(()=>{playP=null;},()=>{playP=null;});}}catch(e){}
+  try{const p=v.play();if(p&&p.then){playP=p.then(()=>{playP=null;},()=>{playP=null;});}}catch(e){}
  }else safePause();
 }
 function step(n){
@@ -86,6 +96,7 @@ document.getElementById('tb').onclick=()=>{
  const p=document.getElementById('typed').value.trim().split(/\s+/).map(Number);
  if(p.length===3&&p.every(x=>!isNaN(x))){marks={s:0,h:p[0],l:p[0]+p[1]-1,r:p[0]+p[1]-1+p[2]+1};}
  show();};
+document.getElementById('demo').onclick=()=>{marks={s:10,h:30,l:32,r:50};show();};
 v.addEventListener('seeked',show);v.addEventListener('timeupdate',show);
 fpsE.oninput=show;
 window.addEventListener('keydown',e=>{
